@@ -1,0 +1,100 @@
+{
+    "name": "dsola/fake-news-detector-api",
+    "description": "An API that actually verifies the articles you are reading",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "dsola",
+            "email": "dsola@example.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.3",
+        "api-platform/core": "^4.1",
+        "doctrine/doctrine-bundle": "^2.18",
+        "doctrine/doctrine-migrations-bundle": "^3.7",
+        "doctrine/orm": "^3.6",
+        "lexik/jwt-authentication-bundle": "^3.2",
+        "phpdocumentor/reflection-docblock": "^6.0",
+        "phpstan/phpdoc-parser": "^2.3",
+        "symfony/console": "^7.1",
+        "symfony/dotenv": "^7.1",
+        "symfony/expression-language": "7.1.*",
+        "symfony/flex": "^2.4",
+        "symfony/framework-bundle": "^7.1",
+        "symfony/http-foundation": "^7.3.7",
+        "symfony/property-access": "7.1.*",
+        "symfony/property-info": "7.1.*",
+        "symfony/runtime": "^7.1",
+        "symfony/security-bundle": "7.1.*",
+        "symfony/serializer": "7.1.*",
+        "symfony/validator": "7.1.*",
+        "symfony/yaml": "^7.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.5",
+        "symfony/browser-kit": "7.1.*",
+        "symfony/css-selector": "7.1.*",
+        "symfony/http-client": "7.1.*",
+        "symfony/maker-bundle": "^1.60",
+        "symfony/phpunit-bridge": "^8.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true,
+            "symfony/flex": true,
+            "symfony/runtime": true
+        },
+        "sort-packages": true,
+        "audit": {
+            "block-insecure": false
+        },
+        "platform": {
+            "ext-redis": "6.2"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\Tests\\": "tests/"
+        }
+    },
+    "replace": {
+        "symfony/polyfill-ctype": "*",
+        "symfony/polyfill-iconv": "*",
+        "symfony/polyfill-php72": "*",
+        "symfony/polyfill-php73": "*",
+        "symfony/polyfill-php74": "*",
+        "symfony/polyfill-php80": "*",
+        "symfony/polyfill-php81": "*",
+        "symfony/polyfill-php82": "*"
+    },
+    "scripts": {
+        "auto-scripts": {
+            "cache:clear": "symfony-cmd",
+            "assets:install %PUBLIC_DIR%": "symfony-cmd"
+        },
+        "post-install-cmd": [
+            "@auto-scripts"
+        ],
+        "post-update-cmd": [
+            "@auto-scripts"
+        ]
+    },
+    "conflict": {
+        "symfony/symfony": "*"
+    },
+    "extra": {
+        "symfony": {
+            "allow-contrib": false,
+            "require": "7.1.*"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
