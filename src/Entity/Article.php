@@ -175,14 +175,4 @@ class Article
         }
         return $this;
     }
-
-    public function removeVerification(Verification $verification): static
-    {
-        if ($this->verifications->removeElement($verification)) {
-            if ($verification->getArticle() === $this) {
-                $verification->setArticle(null);
-            }
-        }
-        return $this;
-    }
 }
