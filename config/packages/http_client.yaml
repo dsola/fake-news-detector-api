@@ -1,0 +1,6 @@
+framework:
+    http_client:
+        max_host_connections: 10
+        default_options:
+            max_redirects: 5
+            timeout: 30

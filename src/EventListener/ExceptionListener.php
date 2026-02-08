@@ -7,6 +7,7 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Validator\Exception\ValidationFailedException;
 use Psr\Log\LoggerInterface;
@@ -24,6 +25,9 @@ class ExceptionListener
             $this->handleCorruptedContent($event, $exception);
         } elseif ($exception instanceof ValidationFailedException) {
             $this->handleValidationFailed($event, $exception);
+        } elseif ($exception instanceof UnprocessableEntityHttpException && $exception->getPrevious() instanceof ValidationFailedException) {
+            // Handle MapRequestPayload validation errors wrapped in UnprocessableEntityHttpException
+            $this->handleValidationFailed($event, $exception->getPrevious());
         }
     }
 
@@ -33,18 +37,21 @@ class ExceptionListener
             'errors' => $exception->getViolations(),
         ]);
 
-        $errors = [];
+        $violations = [];
         foreach ($exception->getViolations() as $violation) {
-            $errors[$violation->getPropertyPath()] = $violation->getMessage();
+            $violations[] = [
+                'propertyPath' => $violation->getPropertyPath(),
+                'message' => $violation->getMessage(),
+            ];
         }
 
         $response = new JsonResponse(
             [
                 'error' => 'Validation Failed',
                 'message' => 'The provided data is invalid',
-                'violations' => $errors,
+                'violations' => $violations,
             ],
-            Response::HTTP_BAD_REQUEST
+            Response::HTTP_UNPROCESSABLE_ENTITY
         );
 
         $event->setResponse($response);

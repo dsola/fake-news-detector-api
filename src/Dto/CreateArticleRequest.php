@@ -16,6 +16,6 @@ class CreateArticleRequest
     public string $title = '';
 
     #[Assert\NotBlank(message: 'URL cannot be empty')]
-    #[Assert\Url(message: 'The provided URL is not valid')]
+    #[Assert\Url(message: 'The provided URL is not valid', requireTld: true)]
     public string $url = '';
 }

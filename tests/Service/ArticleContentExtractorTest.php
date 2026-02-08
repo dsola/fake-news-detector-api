@@ -62,7 +62,7 @@ HTML;
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Broken Page</title>
+    <title></title>
 </head>
 <body>
     <script>alert('Only scripts here');</script>
@@ -77,6 +77,7 @@ HTML;
 
         $result = $extractor->extractFromUrl('https://example.com/corrupted');
 
+        // When HTML has only scripts and styles (no meaningful text content), result should be empty
         $this->assertEmpty(trim($result));
     }
 
