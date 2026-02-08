@@ -45,10 +45,9 @@ class Article
     #[Groups(['article:read', 'article:write'])]
     private ?string $title = null;
 
-    #[ORM\Column(type: Types::BLOB)]
-    #[Assert\NotBlank]
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[Groups(['article:read', 'article:write'])]
-    private $content = null;
+    private ?string $content = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     #[Groups(['article:read'])]
@@ -105,12 +104,12 @@ class Article
         return $this;
     }
 
-    public function getContent()
+    public function getContent(): ?string
     {
         return $this->content;
     }
 
-    public function setContent($content): static
+    public function setContent(?string $content): static
     {
         $this->content = $content;
         return $this;

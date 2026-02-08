@@ -26,7 +26,7 @@ final class Version20260208072514 extends AbstractMigration
         $this->addSql('CREATE TABLE article (
             id UUID NOT NULL PRIMARY KEY,
             title VARCHAR(255) NOT NULL,
-            content BYTEA NOT NULL,
+            content TEXT,
             verified_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
             errored_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
             created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
