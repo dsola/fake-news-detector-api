@@ -49,6 +49,10 @@ class Article
     #[Groups(['article:read', 'article:write'])]
     private ?string $content = null;
 
+    #[ORM\Column(length: 255)]
+    #[Groups(['article:read', 'article:write'])]
+    private ?string $url = null;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     #[Groups(['article:read'])]
     private ?\DateTimeInterface $verifiedAt = null;
@@ -112,6 +116,17 @@ class Article
     public function setContent(?string $content): static
     {
         $this->content = $content;
+        return $this;
+    }
+
+    public function getUrl(): ?string
+    {
+        return $this->url;
+    }
+
+    public function setUrl(?string $url): static
+    {
+        $this->url = $url;
         return $this;
     }
 
