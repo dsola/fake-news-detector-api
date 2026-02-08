@@ -19,43 +19,48 @@ final class Version20260208072514 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        // Drop the old article table
-        $this->addSql('DROP TABLE IF EXISTS article CASCADE');
+        // Drop the old article table if it exists
+        if ($schema->hasTable('article')) {
+            $schema->dropTable('article');
+        }
 
-        // Create the new article table with UUID primary key using PostgreSQL UUID type
-        $this->addSql('CREATE TABLE article (
-            id UUID NOT NULL PRIMARY KEY,
-            title VARCHAR(255) NOT NULL,
-            content TEXT,
-            verified_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
-            errored_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
-            created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
-            updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL
-        )');
+        // Create the article table
+        $articleTable = $schema->createTable('article');
+        $articleTable->addColumn('id', 'uuid', ['notnull' => true]);
+        $articleTable->addColumn('title', 'string', ['length' => 255, 'notnull' => true]);
+        $articleTable->addColumn('content', 'text', ['notnull' => false]);
+        $articleTable->addColumn('verified_at', 'datetime', ['notnull' => false]);
+        $articleTable->addColumn('errored_at', 'datetime', ['notnull' => false]);
+        $articleTable->addColumn('created_at', 'datetime', ['notnull' => true]);
+        $articleTable->addColumn('updated_at', 'datetime', ['notnull' => true]);
+        $articleTable->setPrimaryKey(['id']);
 
-        // Create the verification table with PostgreSQL UUID type
-        $this->addSql('CREATE TABLE verification (
-            id UUID NOT NULL PRIMARY KEY,
-            article_id UUID NOT NULL,
-            type VARCHAR(50) NOT NULL,
-            result VARCHAR(50) NOT NULL,
-            metadata JSON NOT NULL,
-            started_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
-            terminated_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
-            errored_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL,
-            created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL,
-            CONSTRAINT FK_VERIFICATION_ARTICLE FOREIGN KEY (article_id) REFERENCES article (id) ON DELETE CASCADE
-        )');
-
-        // Create index on article_id for better query performance
-        $this->addSql('CREATE INDEX IDX_VERIFICATION_ARTICLE ON verification (article_id)');
+        // Create the verification table
+        $verificationTable = $schema->createTable('verification');
+        $verificationTable->addColumn('id', 'uuid', ['notnull' => true]);
+        $verificationTable->addColumn('article_id', 'uuid', ['notnull' => true]);
+        $verificationTable->addColumn('type', 'string', ['length' => 50, 'notnull' => true]);
+        $verificationTable->addColumn('result', 'string', ['length' => 50, 'notnull' => true]);
+        $verificationTable->addColumn('metadata', 'json', ['notnull' => true]);
+        $verificationTable->addColumn('started_at', 'datetime', ['notnull' => false]);
+        $verificationTable->addColumn('terminated_at', 'datetime', ['notnull' => false]);
+        $verificationTable->addColumn('errored_at', 'datetime', ['notnull' => false]);
+        $verificationTable->addColumn('created_at', 'datetime', ['notnull' => true]);
+        $verificationTable->setPrimaryKey(['id']);
+        $verificationTable->addForeignKeyConstraint('article', ['article_id'], ['id'], ['onDelete' => 'CASCADE'], 'FK_VERIFICATION_ARTICLE');
+        $verificationTable->addIndex(['article_id'], 'IDX_VERIFICATION_ARTICLE');
     }
 
     public function down(Schema $schema): void
     {
         // Drop verification table
-        $this->addSql('DROP TABLE IF EXISTS verification CASCADE');
+        if ($schema->hasTable('verification')) {
+            $schema->dropTable('verification');
+        }
+
         // Drop article table
-        $this->addSql('DROP TABLE IF EXISTS article CASCADE');
+        if ($schema->hasTable('article')) {
+            $schema->dropTable('article');
+        }
     }
 }
