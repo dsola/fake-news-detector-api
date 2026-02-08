@@ -71,7 +71,7 @@ symfony server:start
 
 Or using PHP built-in server:
 ```bash
-php -S localhost:8000 -t public/
+php -S localhost:8080 -t public/
 ```
 
 ### Using Docker
@@ -81,19 +81,19 @@ Start the services:
 docker compose up -d
 ```
 
-The API will be available at `http://localhost:8000`
+The API will be available at `http://localhost:8080`
 
 ### API Documentation
 
 Once the server is running, visit:
-- OpenAPI documentation: http://localhost:8000/api/docs
-- API endpoints: http://localhost:8000/api
+- OpenAPI documentation: http://localhost:8080/api/docs
+- API endpoints: http://localhost:8080/api
 
 ### Example API Requests
 
 Create an article:
 ```bash
-curl -X POST http://localhost:8000/api/articles \
+curl -X POST http://localhost:8080/api/articles \
   -H "Content-Type: application/ld+json" \
   -d '{
     "url": "https://example.com/article",
@@ -104,19 +104,19 @@ curl -X POST http://localhost:8000/api/articles \
 
 Get all articles:
 ```bash
-curl http://localhost:8000/api/articles
+curl http://localhost:8080/api/articles
 ```
 
 Get a specific article:
 ```bash
-curl http://localhost:8000/api/articles/1
+curl http://localhost:8080/api/articles/1
 ```
 
 ### Authentication
 
 To authenticate requests, first obtain a JWT token:
 ```bash
-curl -X POST http://localhost:8000/api/login \
+curl -X POST http://localhost:8080/api/login \
   -H "Content-Type: application/json" \
   -d '{
     "username": "user@example.com",
@@ -126,7 +126,7 @@ curl -X POST http://localhost:8000/api/login \
 
 Then use the token in subsequent requests:
 ```bash
-curl http://localhost:8000/api/articles \
+curl http://localhost:8080/api/articles \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
