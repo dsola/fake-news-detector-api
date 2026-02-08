@@ -15,4 +15,15 @@ class ArticleRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Article::class);
     }
+
+    /**
+     * Save an article to the database
+     */
+    public function save(Article $article): Article
+    {
+        $this->getEntityManager()->persist($article);
+        $this->getEntityManager()->flush();
+        
+        return $article;
+    }
 }
