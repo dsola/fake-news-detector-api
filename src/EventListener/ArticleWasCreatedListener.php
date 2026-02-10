@@ -2,8 +2,10 @@
 
 namespace App\EventListener;
 
+use App\Dto\ArticleDto;
 use App\Event\ArticleWasCreated;
 use App\Repository\ArticleRepository;
+use App\Service\ArticleVerifier;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
@@ -12,6 +14,7 @@ class ArticleWasCreatedListener
 {
     public function __construct(
         private readonly ArticleRepository $articleRepository,
+        private readonly ArticleVerifier $articleVerifier,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -34,8 +37,13 @@ class ArticleWasCreatedListener
                 'url' => $article->getUrl(),
             ]);
 
-            // You can add more processing here as needed
-            // For example: trigger verification, send notifications, etc.
+            $articleDto = new ArticleDto(
+                articleId: $articleId,
+                title: $article->getTitle(),
+                url: $article->getUrl(),
+            );
+
+            $this->articleVerifier->verify($articleDto);
         } catch (\Exception $e) {
             $this->logger->error('Error processing ArticleWasCreated event', [
                 'articleId' => $articleId->toRfc4122(),
