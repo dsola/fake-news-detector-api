@@ -78,8 +78,8 @@ php -S localhost:8080 -t public/
 
 Start the services:
 ```bash
-docker compose up -d
-```
+docker compose --env-file .env.compose up -d
+ q```
 
 The API will be available at `http://localhost:8080`
 

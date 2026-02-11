@@ -10,5 +10,6 @@ class ArticleDto
         public readonly Uuid $articleId,
         public readonly string $title,
         public readonly string $url,
+        public readonly ?string $content = null,
     ) {}
 }

@@ -54,10 +54,14 @@ class Article
     #[Groups(['article:read'])]
     private Collection $verifications;
 
+    #[ORM\OneToMany(targetEntity: SimilarArticle::class, mappedBy: 'article', cascade: ['persist', 'remove'])]
+    private Collection $similarArticles;
+
     public function __construct()
     {
         $this->id = Uuid::v4();
         $this->verifications = new ArrayCollection();
+        $this->similarArticles = new ArrayCollection();
     }
 
     #[ORM\PrePersist]
@@ -168,6 +172,33 @@ class Article
         if (!$this->verifications->contains($verification)) {
             $this->verifications->add($verification);
             $verification->setArticle($this);
+        }
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, SimilarArticle>
+     */
+    public function getSimilarArticles(): Collection
+    {
+        return $this->similarArticles;
+    }
+
+    public function addSimilarArticle(SimilarArticle $similarArticle): static
+    {
+        if (!$this->similarArticles->contains($similarArticle)) {
+            $this->similarArticles->add($similarArticle);
+            $similarArticle->setArticle($this);
+        }
+        return $this;
+    }
+
+    public function removeSimilarArticle(SimilarArticle $similarArticle): static
+    {
+        if ($this->similarArticles->removeElement($similarArticle)) {
+            if ($similarArticle->getArticle() === $this) {
+                $similarArticle->setArticle(null);
+            }
         }
         return $this;
     }

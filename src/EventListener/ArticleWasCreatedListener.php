@@ -41,6 +41,7 @@ class ArticleWasCreatedListener
                 articleId: $articleId,
                 title: $article->getTitle(),
                 url: $article->getUrl(),
+                content: $article->getContent(),
             );
 
             $this->articleVerifier->verify($articleDto);

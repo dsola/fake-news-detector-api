@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: fake-news-detector-api-php
     env_file:
-      - .env
+      - .env.local
     working_dir: /var/www/html
     volumes:
       - .:/var/www/html
@@ -31,7 +31,9 @@ services:
     image: postgres:${POSTGRES_VERSION}-alpine
     container_name: fake-news-detector-api-database
     env_file:
-      - .env
+      - .env.local
+    ports:
+      - "5433:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -43,6 +45,7 @@ services:
       start_period: 60s
     volumes:
       - database_data:/var/lib/postgresql/data:rw
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
       # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
       # - ./docker/db/data:/var/lib/postgresql/data:rw
 ###< doctrine/doctrine-bundle ###

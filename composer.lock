@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b1ac4ec1166a82e3fa11818d9aecb48a",
+    "content-hash": "b4289664111ba998d9eafea7db30f15f",
     "packages": [
         {
             "name": "api-platform/core",
@@ -1334,6 +1334,64 @@
             "time": "2025-10-26T09:35:14+00:00"
         },
         {
+            "name": "edgaras/strsim",
+            "version": "v1.1.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Edgaras0x4E/StrSim.git",
+                "reference": "5e08d18c1eeb5cc1bec28083a98ff47a8c451cc4"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Edgaras0x4E/StrSim/zipball/5e08d18c1eeb5cc1bec28083a98ff47a8c451cc4",
+                "reference": "5e08d18c1eeb5cc1bec28083a98ff47a8c451cc4",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.3.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^11.5"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Edgaras\\StrSim\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Collection of string similarity and distance algorithms in PHP including Levenshtein, Damerau-Levenshtein, Jaro-Winkler, and more",
+            "homepage": "https://github.com/Edgaras0x4E/StrSim",
+            "keywords": [
+                "Algorithm",
+                "Jaccard",
+                "Jaro",
+                "comparison",
+                "cosine",
+                "damerau-levenshtein",
+                "distance",
+                "fuzzy",
+                "jaro-winkler",
+                "lcs",
+                "levenshtein",
+                "monge-elkan",
+                "multibyte",
+                "needleman-wunsch",
+                "similarity",
+                "smith-waterman",
+                "string",
+                "text"
+            ],
+            "support": {
+                "issues": "https://github.com/Edgaras0x4E/StrSim/issues",
+                "source": "https://github.com/Edgaras0x4E/StrSim/tree/v1.1.1"
+            },
+            "time": "2025-10-24T21:50:02+00:00"
+        },
+        {
             "name": "lcobucci/jwt",
             "version": "5.6.0",
             "source": {
@@ -1521,6 +1579,55 @@
                 }
             ],
             "time": "2025-12-20T17:47:00+00:00"
+        },
+        {
+            "name": "nlp-tools/nlp-tools",
+            "version": "v0.1.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/angeloskath/php-nlp-tools.git",
+                "reference": "bbccab0f3ca7277bdf7b292ba67ca644efd0cefe"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/angeloskath/php-nlp-tools/zipball/bbccab0f3ca7277bdf7b292ba67ca644efd0cefe",
+                "reference": "bbccab0f3ca7277bdf7b292ba67ca644efd0cefe",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "1.0.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-0": {
+                    "NlpTools\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "WTFPL"
+            ],
+            "authors": [
+                {
+                    "name": "Angelos Katharopoulos",
+                    "email": "angelos@yourse.gr"
+                }
+            ],
+            "description": "NlpTools is a set of php 5.3+ classes for beginner to semi advanced natural language processing work.",
+            "keywords": [
+                "machine learning",
+                "nlp"
+            ],
+            "support": {
+                "issues": "https://github.com/angeloskath/php-nlp-tools/issues",
+                "source": "https://github.com/angeloskath/php-nlp-tools/tree/master"
+            },
+            "time": "2016-11-03T15:34:42+00:00"
         },
         {
             "name": "phpdocumentor/reflection-common",
