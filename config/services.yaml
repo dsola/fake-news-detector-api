@@ -32,4 +32,11 @@ services:
             $logFile: '%kernel.logs_dir%/%kernel.environment%.log'
 
     Psr\Log\LoggerInterface: '@App\Logging\FileLogger'
+    
+    App\Service\ArticleScoreCalculator:
+        arguments:
+            $limit: 10
+            $approvalThreshold: 0.5
+
+    
 

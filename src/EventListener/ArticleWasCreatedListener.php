@@ -43,8 +43,7 @@ class ArticleWasCreatedListener
                 url: $article->getUrl(),
                 content: $article->getContent(),
             );
-
-            $this->articleVerifier->verify($articleDto);
+            $this->articleVerifier->verify($article, $articleDto);
         } catch (\Exception $e) {
             $this->logger->error('Error processing ArticleWasCreated event', [
                 'articleId' => $articleId->toRfc4122(),

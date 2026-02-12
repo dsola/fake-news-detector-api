@@ -6,8 +6,13 @@ use App\Dto\ArticleDto;
 use App\Dto\SimilarArticle;
 use App\Dto\SimilarArticleWithScore;
 use App\Entity\Article;
+use App\Entity\SimilarArticle as SimilarArticleEntity;
+use App\Entity\Verification;
+use App\Entity\VerificationResult;
 use App\Repository\ArticleRepository;
 use App\Repository\SimilarArticleRepository;
+use App\Service\ArticleScoreCalculator;
+use App\Service\RelevantWordsExtractor;
 use Psr\Log\LoggerInterface;
 
 class ArticleVerifier
@@ -18,6 +23,8 @@ class ArticleVerifier
         private readonly ArticleRepository $articleRepository,
         private readonly SimilarArticleRepository $similarArticleRepository,
         private readonly LoggerInterface $logger,
+        private readonly RelevantWordsExtractor $relevantWordsExtractor,
+        private readonly ArticleScoreCalculator $scoreCalculator,
     ) {}
 
     /**
@@ -25,31 +32,47 @@ class ArticleVerifier
      *
      * @return SimilarArticleWithScore[]
      */
-    public function verify(ArticleDto $articleDto): array
+    public function verify(Article $article, ArticleDto $articleDto): array
     {
+        $verification = $this->createPendingVerification($article);
+        $scoredArticles = [];
+
         try {
             $this->logger->info('Verifying article', [
                 'articleId' => $articleDto->articleId->toRfc4122(),
                 'title' => $articleDto->title,
             ]);
 
-            $similarArticles = $this->articleWebSearch->searchSimilarArticles($articleDto->title);
+            $searchTitle = $this->buildSearchQuery($articleDto->title);
+            $similarArticles = $this->articleWebSearch->searchSimilarArticles($searchTitle);
 
             $this->logger->info('Found similar articles', [
                 'articleId' => $articleDto->articleId->toRfc4122(),
                 'count' => count($similarArticles),
             ]);
 
-            // Score similar articles based on content similarity
             $scoredArticles = $this->scoreSimilarArticles($articleDto, $similarArticles);
+            $scoreResult = $this->scoreCalculator->calculate($scoredArticles);
 
             $this->logger->info('Scored similar articles', [
                 'articleId' => $articleDto->articleId->toRfc4122(),
-                'averageScore' => $this->calculateAverageScore($scoredArticles),
+                'averageScore' => $scoreResult->averageScore,
+                'result' => $scoreResult->result->value,
             ]);
 
-            // Store similar articles in the database
-            $this->storeSimilarArticles($articleDto->articleId, $scoredArticles);
+            $verification->setResult($scoreResult->result->value);
+            $verification->setMetadata([
+                'originalTitle' => $articleDto->title,
+                'searchTitle' => $searchTitle,
+                'averageScore' => $scoreResult->averageScore,
+                'consideredArticles' => $scoreResult->consideredArticles,
+                'totalArticles' => $scoreResult->totalArticles,
+            ]);
+
+            $article->setVerifiedAt(new \DateTimeImmutable());
+            $article->setErroredAt(null);
+
+            $this->storeSimilarArticles($article, $scoredArticles);
 
             $this->logger->info('Stored similar articles in database', [
                 'articleId' => $articleDto->articleId->toRfc4122(),
@@ -57,13 +80,21 @@ class ArticleVerifier
             ]);
 
             return $scoredArticles;
-        } catch (\Exception $e) {
+        } catch (\Throwable $exception) {
             $this->logger->error('Failed to verify article', [
                 'articleId' => $articleDto->articleId->toRfc4122(),
-                'error' => $e->getMessage(),
+                'error' => $exception->getMessage(),
             ]);
 
-            throw $e;
+            $verification->setResult(VerificationResult::REJECTED->value);
+            $verification->setErroredAt(new \DateTimeImmutable());
+            $article->setErroredAt(new \DateTimeImmutable());
+            $article->setVerifiedAt(null);
+
+            throw $exception;
+        } finally {
+            $verification->setTerminatedAt(new \DateTimeImmutable());
+            $this->articleRepository->save($article);
         }
     }
 
@@ -98,52 +129,24 @@ class ArticleVerifier
     }
 
     /**
-     * Calculate average similarity score
-     *
-     * @param SimilarArticleWithScore[] $articles
-     */
-    private function calculateAverageScore(array $articles): float
-    {
-        if (empty($articles)) {
-            return 0.0;
-        }
-
-        $totalScore = array_reduce(
-            $articles,
-            fn($carry, $article) => $carry + $article->similarityScore,
-            0.0
-        );
-
-        return $totalScore / count($articles);
-    }
-
-    /**
      * Store similar articles in the database
      *
-     * @param \Symfony\Component\Uid\Uuid $articleId
+     * @param Article $article
      * @param SimilarArticleWithScore[] $scoredArticles
      */
-    private function storeSimilarArticles(\Symfony\Component\Uid\Uuid $articleId, array $scoredArticles): void
+    private function storeSimilarArticles(Article $article, array $scoredArticles): void
     {
-        $article = $this->articleRepository->find($articleId);
+        $hasChanges = false;
 
-        if ($article === null) {
-            $this->logger->warning('Article not found when storing similar articles', [
-                'articleId' => $articleId->toRfc4122(),
-            ]);
-            return;
-        }
-
-        // Clear existing similar articles and replace with new ones
         foreach ($article->getSimilarArticles() as $existingSimilar) {
             $article->removeSimilarArticle($existingSimilar);
+            $this->similarArticleRepository->remove($existingSimilar);
+            $hasChanges = true;
         }
-        
-        $this->articleRepository->save($article, true);
 
-        // Create and save new similar article entities
         foreach ($scoredArticles as $scoredArticle) {
-            $similarArticleEntity = new \App\Entity\SimilarArticle();
+            $hasChanges = true;
+            $similarArticleEntity = new SimilarArticleEntity();
             $similarArticleEntity->setArticle($article);
             $similarArticleEntity->setSource($scoredArticle->source);
             $similarArticleEntity->setAuthor($scoredArticle->author);
@@ -156,9 +159,31 @@ class ArticleVerifier
             $this->similarArticleRepository->save($similarArticleEntity, flush: false);
         }
 
-        // Flush all similar articles at once
-        if (!empty($scoredArticles)) {
+        if ($hasChanges) {
             $this->similarArticleRepository->flush();
         }
+    }
+
+    private function buildSearchQuery(string $title): string
+    {
+        $tokens = $this->relevantWordsExtractor->extract($title, maxWords: 0);
+
+        if ($tokens === []) {
+            return $title;
+        }
+
+        return implode(' ', $tokens);
+    }
+
+    private function createPendingVerification(Article $article): Verification
+    {
+        $verification = new Verification();
+        $verification->setType('SIMILAR_CONTENT');
+        $verification->setResult(VerificationResult::PENDING->value);
+        $verification->setMetadata([]);
+        $verification->setStartedAt(new \DateTimeImmutable());
+        $article->addVerification($verification);
+
+        return $verification;
     }
 }

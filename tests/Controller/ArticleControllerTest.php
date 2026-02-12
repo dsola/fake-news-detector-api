@@ -2,11 +2,17 @@
 
 namespace App\Tests\Controller;
 
+use App\Entity\Article;
+use App\Entity\Verification;
+use App\Entity\VerificationResult;
 use App\Service\ArticleContentExtractor;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Tests that require HTTP client mocking
@@ -102,6 +108,12 @@ HTML;
  */
 class ArticleControllerTest extends WebTestCase
 {
+    private function purgeDatabase(EntityManagerInterface $entityManager): void
+    {
+        $entityManager->createQuery('DELETE FROM App\\Entity\\Verification')->execute();
+        $entityManager->createQuery('DELETE FROM App\\Entity\\Article')->execute();
+    }
+
     public function testAssertTheRespectiveUserValidationInput(): void
     {
         $client = static::createClient();
@@ -163,5 +175,60 @@ class ArticleControllerTest extends WebTestCase
         $this->assertIsArray($responseData);
         $this->assertArrayHasKey('violations', $responseData);
         $this->assertGreaterThanOrEqual(2, count($responseData['violations']));
+    }
+
+    public function testGetArticleReturnsArticleWithVerifications(): void
+    {
+        $client = static::createClient();
+        $entityManager = static::getContainer()->get('doctrine')->getManager();
+        $this->purgeDatabase($entityManager);
+
+        $article = new Article();
+        $article->setTitle('Fetched Article');
+        $article->setUrl('https://example.com/verified');
+        $article->setContent('Verified content.');
+
+        $verification = new Verification();
+        $verification->setType('SIMILAR_CONTENT');
+        $verification->setResult(VerificationResult::APPROVED->value);
+        $verification->setMetadata(['reason' => 'test']);
+        $verification->setStartedAt(new \DateTime());
+        $verification->setTerminatedAt(new \DateTime());
+
+        $article->addVerification($verification);
+        $entityManager->persist($article);
+        $entityManager->flush();
+
+        $client->request('GET', '/api/articles/' . $article->getId()->toRfc4122());
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $payload = json_decode($client->getResponse()->getContent(), true);
+        $this->assertIsArray($payload);
+        $this->assertArrayHasKey('verifications', $payload);
+        $this->assertNotEmpty($payload['verifications']);
+        $this->assertSame('SIMILAR_CONTENT', $payload['verifications'][0]['type']);
+        $this->assertSame(VerificationResult::APPROVED->value, $payload['verifications'][0]['result']);
+    }
+
+    public function testGetArticleRespondsNotFoundForMissingArticle(): void
+    {
+        $client = static::createClient();
+
+        $client->request('GET', '/api/articles/' . Uuid::v4()->toRfc4122());
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        $payload = json_decode($client->getResponse()->getContent(), true);
+        $this->assertSame('Article not found', $payload['error']);
+    }
+
+    public function testGetArticleRejectsInvalidIdFormat(): void
+    {
+        $client = static::createClient();
+
+        $client->request('GET', '/api/articles/not-a-uuid');
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        $payload = json_decode($client->getResponse()->getContent(), true);
+        $this->assertSame('Invalid article ID format', $payload['error']);
     }
 }

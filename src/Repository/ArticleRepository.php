@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\Article;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * @extends ServiceEntityRepository<Article>
@@ -25,5 +26,16 @@ class ArticleRepository extends ServiceEntityRepository
         $this->getEntityManager()->flush();
         
         return $article;
+    }
+
+    public function findWithVerifications(Uuid $id): ?Article
+    {
+        return $this->createQueryBuilder('a')
+            ->leftJoin('a.verifications', 'v')
+            ->addSelect('v')
+            ->andWhere('a.id = :id')
+            ->setParameter('id', $id)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 }
