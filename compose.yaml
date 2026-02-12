@@ -9,6 +9,7 @@ services:
     working_dir: /var/www/html
     volumes:
       - .:/var/www/html
+      - ./var/log:/var/www/html/var/log
     environment:
       APP_ENV: dev
       DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}?serverVersion=16&charset=utf8"
