@@ -1,2 +1,1 @@
-CREATE DATABASE fake_news_detector;
 CREATE DATABASE fake_news_detector_test;

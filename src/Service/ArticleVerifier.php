@@ -70,7 +70,6 @@ class ArticleVerifier
             ]);
 
             $article->setVerifiedAt(new \DateTimeImmutable());
-            $article->setErroredAt(null);
 
             $this->storeSimilarArticles($article, $scoredArticles);
 
@@ -84,12 +83,12 @@ class ArticleVerifier
             $this->logger->error('Failed to verify article', [
                 'articleId' => $articleDto->articleId->toRfc4122(),
                 'error' => $exception->getMessage(),
+                'stackTrace' => $exception->getTrace(),
             ]);
 
             $verification->setResult(VerificationResult::REJECTED->value);
             $verification->setErroredAt(new \DateTimeImmutable());
             $article->setErroredAt(new \DateTimeImmutable());
-            $article->setVerifiedAt(null);
 
             throw $exception;
         } finally {
@@ -137,12 +136,6 @@ class ArticleVerifier
     private function storeSimilarArticles(Article $article, array $scoredArticles): void
     {
         $hasChanges = false;
-
-        foreach ($article->getSimilarArticles() as $existingSimilar) {
-            $article->removeSimilarArticle($existingSimilar);
-            $this->similarArticleRepository->remove($existingSimilar);
-            $hasChanges = true;
-        }
 
         foreach ($scoredArticles as $scoredArticle) {
             $hasChanges = true;

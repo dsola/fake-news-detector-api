@@ -48,6 +48,7 @@ class ArticleWasCreatedListener
             $this->logger->error('Error processing ArticleWasCreated event', [
                 'articleId' => $articleId->toRfc4122(),
                 'error' => $e->getMessage(),
+                'stackTrace' => $e->getTrace(),
             ]);
         }
     }

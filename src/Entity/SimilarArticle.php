@@ -151,6 +151,9 @@ class SimilarArticle
 
     public function setCreatedAt(\DateTimeInterface $createdAt): static
     {
+        if (!$createdAt instanceof \DateTime) {
+            $createdAt = \DateTime::createFromInterface($createdAt);
+        }
         $this->createdAt = $createdAt;
         return $this;
     }

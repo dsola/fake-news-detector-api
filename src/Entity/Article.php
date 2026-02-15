@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\ArticleRepository;
+use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -120,19 +121,25 @@ class Article
         return $this->verifiedAt;
     }
 
-    public function setVerifiedAt(?\DateTimeInterface $verifiedAt): static
+    public function setVerifiedAt(DateTimeInterface $verifiedAt): static
     {
+        if (!$verifiedAt instanceof \DateTime) {
+            $verifiedAt = \DateTime::createFromInterface($verifiedAt);
+        }
         $this->verifiedAt = $verifiedAt;
         return $this;
     }
 
-    public function getErroredAt(): ?\DateTimeInterface
+    public function getErroredAt(): ?DateTimeInterface
     {
         return $this->erroredAt;
     }
 
-    public function setErroredAt(?\DateTimeInterface $erroredAt): static
+    public function setErroredAt(DateTimeInterface $erroredAt): static
     {
+        if (!$erroredAt instanceof \DateTime) {
+            $erroredAt = \DateTime::createFromInterface($erroredAt);
+        }
         $this->erroredAt = $erroredAt;
         return $this;
     }
@@ -144,6 +151,9 @@ class Article
 
     public function setCreatedAt(\DateTimeInterface $createdAt): static
     {
+        if (!$createdAt instanceof \DateTime) {
+            $createdAt = \DateTime::createFromInterface($createdAt);
+        }
         $this->createdAt = $createdAt;
         return $this;
     }
@@ -155,6 +165,9 @@ class Article
 
     public function setUpdatedAt(\DateTimeInterface $updatedAt): static
     {
+        if (!$updatedAt instanceof \DateTime) {
+            $updatedAt = \DateTime::createFromInterface($updatedAt);
+        }
         $this->updatedAt = $updatedAt;
         return $this;
     }
@@ -189,16 +202,6 @@ class Article
         if (!$this->similarArticles->contains($similarArticle)) {
             $this->similarArticles->add($similarArticle);
             $similarArticle->setArticle($this);
-        }
-        return $this;
-    }
-
-    public function removeSimilarArticle(SimilarArticle $similarArticle): static
-    {
-        if ($this->similarArticles->removeElement($similarArticle)) {
-            if ($similarArticle->getArticle() === $this) {
-                $similarArticle->setArticle(null);
-            }
         }
         return $this;
     }
