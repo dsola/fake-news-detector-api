@@ -99,9 +99,9 @@ class Article
         return $this->content;
     }
 
-    public function setContent(?string $content): static
+    public function setContent(string $content): static
     {
-        $this->content = $content;
+        $this->content = mb_convert_encoding($content, 'UTF-8');
         return $this;
     }
 

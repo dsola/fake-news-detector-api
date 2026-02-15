@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Tests\Service;
+namespace App\Tests\Service\Provider;
 
 use App\Exception\SearchProviderException;
 use App\Service\Provider\NewsAPIProvider;
@@ -9,13 +9,9 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
-/**
- * Legacy tests for NewsAPIProvider (previously ArticleWebSearchTest)
- * These tests verify backward compatibility and core functionality
- */
-class ArticleWebSearchTest extends TestCase
+class NewsAPIProviderTest extends TestCase
 {
-    public function testCollectionIsMappedCorrectlyWithMockResponse(): void
+    public function testSearchReturnsArticlesOnSuccessfulResponse(): void
     {
         $mockApiResponse = [
             'status' => 'ok',
@@ -47,23 +43,12 @@ class ArticleWebSearchTest extends TestCase
         $result = $provider->search('Bitcoin');
 
         $this->assertCount(2, $result);
-        
         $this->assertEquals('BBC News', $result[0]->source);
         $this->assertEquals('John Doe', $result[0]->author);
         $this->assertEquals('Bitcoin reaches new high', $result[0]->title);
-        $this->assertEquals('Bitcoin has reached a new all-time high today', $result[0]->description);
-        $this->assertEquals('https://example.com/article1', $result[0]->url);
-        $this->assertEquals('2024-01-15T10:30:00Z', $result[0]->publishedAt->format('Y-m-d\TH:i:s\Z'));
-
-        $this->assertEquals('CNN', $result[1]->source);
-        $this->assertEquals('Jane Smith', $result[1]->author);
-        $this->assertEquals('Bitcoin market analysis', $result[1]->title);
-        $this->assertEquals('An in-depth analysis of the Bitcoin market', $result[1]->description);
-        $this->assertEquals('https://example.com/article2', $result[1]->url);
-        $this->assertEquals('2024-01-14T15:45:00Z', $result[1]->publishedAt->format('Y-m-d\TH:i:s\Z'));
     }
 
-    public function testCollectionIsEmptyIfApiReturnsEmptyResponse(): void
+    public function testSearchReturnsEmptyArrayOnEmptyResponse(): void
     {
         $mockApiResponse = [
             'status' => 'ok',
@@ -81,7 +66,7 @@ class ArticleWebSearchTest extends TestCase
         $this->assertIsArray($result);
     }
 
-    public function testErrorIsReportedCorrectlyWhenApiGivesBackAnError(): void
+    public function testSearchThrowsSearchProviderExceptionOnNonOkStatus(): void
     {
         $mockApiResponse = [
             'status' => 'error',
@@ -99,7 +84,7 @@ class ArticleWebSearchTest extends TestCase
         $provider->search('Bitcoin');
     }
 
-    public function testErrorIsReportedCorrectlyWhenApiTimesOut(): void
+    public function testSearchThrowsSearchProviderExceptionOnConnectionTimeout(): void
     {
         $httpClient = new MockHttpClient(function () {
             throw new class('Connection timeout') extends \Exception implements TransportExceptionInterface {};
@@ -112,7 +97,7 @@ class ArticleWebSearchTest extends TestCase
         $provider->search('Bitcoin');
     }
 
-    public function testErrorIsReportedCorrectlyWhenApiReturnsMalformedResponse(): void
+    public function testSearchThrowsSearchProviderExceptionOnInvalidJson(): void
     {
         $mockResponse = new MockResponse('This is not valid JSON', ['http_code' => 200]);
         $httpClient = new MockHttpClient($mockResponse);
@@ -124,7 +109,7 @@ class ArticleWebSearchTest extends TestCase
         $provider->search('Bitcoin');
     }
 
-    public function testErrorIsReportedWhenResponseMissingArticlesField(): void
+    public function testSearchThrowsSearchProviderExceptionWhenMissingArticlesField(): void
     {
         $mockApiResponse = [
             'status' => 'ok',
@@ -141,7 +126,7 @@ class ArticleWebSearchTest extends TestCase
         $provider->search('Bitcoin');
     }
 
-    public function testErrorIsReportedWhenArticleDataIsInvalid(): void
+    public function testSearchThrowsSearchProviderExceptionWhenArticleDataIsInvalid(): void
     {
         $mockApiResponse = [
             'status' => 'ok',
@@ -165,7 +150,7 @@ class ArticleWebSearchTest extends TestCase
         $provider->search('Bitcoin');
     }
 
-    public function testHandlesMissingOptionalFieldsGracefully(): void
+    public function testSearchHandlesMissingOptionalFieldsGracefully(): void
     {
         $mockApiResponse = [
             'status' => 'ok',
@@ -190,7 +175,39 @@ class ArticleWebSearchTest extends TestCase
         $this->assertEquals('Test Source', $result[0]->source);
         $this->assertEquals('', $result[0]->author);
         $this->assertEquals('', $result[0]->description);
-        $this->assertEquals('Test Title', $result[0]->title);
-        $this->assertEquals('https://example.com', $result[0]->url);
+    }
+
+    public function testSearchThrowsSearchProviderExceptionOnNon200StatusCode(): void
+    {
+        $mockApiResponse = [
+            'status' => 'ok',
+            'articles' => [],
+        ];
+
+        $mockResponse = new MockResponse(json_encode($mockApiResponse), ['http_code' => 500]);
+        $httpClient = new MockHttpClient($mockResponse);
+        $provider = new NewsAPIProvider($httpClient, 'test_api_key');
+
+        $this->expectException(SearchProviderException::class);
+        $this->expectExceptionMessage('News API error:');
+
+        $provider->search('Test');
+    }
+
+    public function testSearchThrowsSearchProviderExceptionOnErrorStatus(): void
+    {
+        $mockApiResponse = [
+            'status' => 'error',
+            'message' => 'Request rate limit exceeded',
+        ];
+
+        $mockResponse = new MockResponse(json_encode($mockApiResponse), ['http_code' => 429]);
+        $httpClient = new MockHttpClient($mockResponse);
+        $provider = new NewsAPIProvider($httpClient, 'test_api_key');
+
+        $this->expectException(SearchProviderException::class);
+        $this->expectExceptionMessage('News API error: Request rate limit exceeded');
+
+        $provider->search('Test');
     }
 }

@@ -25,7 +25,17 @@ services:
 
     App\Service\ArticleWebSearch:
         arguments:
+            $primaryProvider: '@App\Service\Provider\NewsAPIProvider'
+            $fallbackProvider: '@App\Service\Provider\GoogleSearchProvider'
+            $logger: '@Psr\Log\LoggerInterface'
+
+    App\Service\Provider\NewsAPIProvider:
+        arguments:
             $newsApiKey: '%env(NEWS_API_KEY)%'
+
+    App\Service\Provider\GoogleSearchProvider:
+        arguments:
+            $serpApiKey: '%env(SERP_API_KEY)%'
 
     App\Logging\FileLogger:
         arguments:

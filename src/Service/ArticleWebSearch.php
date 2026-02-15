@@ -4,108 +4,79 @@ namespace App\Service;
 
 use App\Dto\SimilarArticle;
 use App\Exception\NewsApiException;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
+use App\Exception\SearchProviderException;
+use App\Service\Provider\ArticleSearchProvider;
+use Psr\Log\LoggerInterface;
 
+/**
+ * Article Web Search service with multiple providers and fallback strategy
+ */
 class ArticleWebSearch
 {
-    private const NEWS_API_BASE_URL = 'https://newsapi.org/v2/everything';
-    private const PAGE_SIZE = 50;
-
     public function __construct(
-        private readonly HttpClientInterface $httpClient,
-        private readonly string $newsApiKey,
+        private readonly ArticleSearchProvider $primaryProvider,
+        private readonly ?ArticleSearchProvider $fallbackProvider = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     /**
      * Search for articles with similar titles
+     * Tries primary provider first, falls back to secondary if available
      *
      * @param string $title The article title to search for
      * @return SimilarArticle[]
-     * @throws NewsApiException
+     * @throws SearchProviderException If both providers fail
      */
     public function searchSimilarArticles(string $title): array
     {
         try {
-            $response = $this->httpClient->request('GET', self::NEWS_API_BASE_URL, [
-                'query' => [
-                    'q' => $title,
-                    'apiKey' => $this->newsApiKey,
-                    'pageSize' => self::PAGE_SIZE,
-                ],
-                'timeout' => 10,
-            ]);
-
-            $statusCode = $response->getStatusCode();
-            $content = $response->getContent(false);
-
-            if ($statusCode !== 200) {
-                $data = json_decode($content, true);
-                $errorMessage = $data['message'] ?? 'Unknown error from News API';
-                throw new NewsApiException(
-                    sprintf('News API error: %s', $errorMessage),
-                );
+            $articles = $this->primaryProvider->search($title);
+            
+            // If primary provider returns results, use them even if it's an empty array
+            if (!empty($articles)) {
+                return $articles;
             }
-
-            $data = json_decode($content, true);
-
-            if (!is_array($data)) {
-                throw new NewsApiException('Malformed response from News API: invalid JSON structure');
+            
+            // If primary provider returns empty results, try fallback
+            if ($this->fallbackProvider === null) {
+                return [];
             }
-
-            if (!isset($data['status']) || $data['status'] !== 'ok') {
-                $errorMessage = $data['message'] ?? 'Unknown error';
-                throw new NewsApiException(sprintf('News API error: %s', $errorMessage));
-            }
-
-            if (!isset($data['articles']) || !is_array($data['articles'])) {
-                throw new NewsApiException('Malformed response from News API: missing or invalid articles field');
-            }
-
-            return $this->mapArticles($data['articles']);
-        } catch (TransportExceptionInterface $e) {
-            throw new NewsApiException(
-                sprintf('Failed to connect to News API: %s', $e->getMessage()),
-                0,
-                $e
+            
+            $this->logger?->info(
+                'Primary search provider returned no results, attempting fallback provider',
+                ['title' => $title]
             );
-        } catch (\JsonException $e) {
-            throw new NewsApiException(
-                'Malformed response from News API: invalid JSON',
-                0,
-                $e
+            
+            return $this->fallbackProvider->search($title);
+        } catch (SearchProviderException $e) {
+            // Primary provider failed, try fallback if available
+            if ($this->fallbackProvider === null) {
+                throw $e;
+            }
+            
+            $this->logger?->warning(
+                'Primary search provider failed, attempting fallback provider',
+                [
+                    'title' => $title,
+                    'error' => $e->getMessage(),
+                ]
             );
-        }
-    }
-
-    /**
-     * @param array $articles
-     * @return SimilarArticle[]
-     * @throws NewsApiException
-     */
-    private function mapArticles(array $articles): array
-    {
-        $similarArticles = [];
-
-        foreach ($articles as $article) {
+            
             try {
-                $similarArticles[] = new SimilarArticle(
-                    source: $article['source']['name'] ?? '',
-                    author: $article['author'] ?? '',
-                    title: $article['title'] ?? '',
-                    description: $article['description'] ?? '',
-                    url: $article['url'] ?? '',
-                    publishedAt: new \DateTimeImmutable($article['publishedAt'] ?? 'now'),
+                return $this->fallbackProvider->search($title);
+            } catch (SearchProviderException $fallbackError) {
+                $this->logger?->error(
+                    'Both search providers failed',
+                    [
+                        'title' => $title,
+                        'primary_error' => $e->getMessage(),
+                        'fallback_error' => $fallbackError->getMessage(),
+                    ]
                 );
-            } catch (\Exception $e) {
-                throw new NewsApiException(
-                    'Malformed response from News API: invalid article data',
-                    0,
-                    $e
-                );
+                
+                // Throw the primary error since it tried first
+                throw $e;
             }
         }
-
-        return $similarArticles;
     }
 }
