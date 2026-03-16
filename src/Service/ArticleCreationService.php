@@ -7,6 +7,7 @@ use App\Event\ArticleWasCreated;
 use App\Exception\CorruptedArticleContentException;
 use App\Repository\ArticleRepository;
 use App\Resource\ArticleResource;
+use Psr\Log\LoggerInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 class ArticleCreationService
@@ -15,6 +16,7 @@ class ArticleCreationService
         private readonly ArticleContentExtractor $contentExtractor,
         private readonly ArticleRepository $articleRepository,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly LoggerInterface $logger,
     ) {}
 
     /**
@@ -24,8 +26,24 @@ class ArticleCreationService
      */
     public function create(array $data): ArticleResource
     {
-        $title = trim($data['title']);
         $url = trim($data['url']);
+
+        // Extract title from URL
+        try {
+            $title = $this->contentExtractor->extractTitleFromUrl($url);
+        } catch (\RuntimeException $e) {
+            $this->logger->error('Failed to extract title from URL', ['url' => $url, 'error' => $e->getMessage()]);
+            throw new CorruptedArticleContentException(
+                sprintf('Failed to fetch title from URL: %s', $e->getMessage())
+            );
+        }
+
+        if ($title === null || $title === '') {
+            $this->logger->error('No title could be found in the page', ['url' => $url]);
+            throw new CorruptedArticleContentException(
+                'No title could be found in the page'
+            );
+        }
 
         // Extract content from URL
         try {

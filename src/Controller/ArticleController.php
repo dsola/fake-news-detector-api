@@ -26,7 +26,6 @@ class ArticleController extends AbstractController
     ): JsonResponse
     {
         $articleResource = $this->articleCreationService->create([
-            'title' => $request->title,
             'url' => $request->url,
         ]);
 

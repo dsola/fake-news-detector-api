@@ -8,6 +8,7 @@ use App\Exception\CorruptedArticleContentException;
 use App\Repository\ArticleRepository;
 use App\Service\ArticleContentExtractor;
 use App\Service\ArticleCreationService;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -26,29 +27,30 @@ class ArticleCreationServiceTest extends KernelTestCase
         $entityManager->createQuery('DELETE FROM App\Entity\Article')->execute();
     }
 
+    private function makeService(ArticleContentExtractor $contentExtractor, EventDispatcherInterface $eventDispatcher): ArticleCreationService
+    {
+        return new ArticleCreationService(
+            $contentExtractor,
+            $this->articleRepository,
+            $eventDispatcher,
+            $this->createStub(LoggerInterface::class),
+        );
+    }
+
     public function testArticleHasBeenStoredSuccessfully(): void
     {
         $contentExtractor = $this->createMock(ArticleContentExtractor::class);
+        $contentExtractor->method('extractTitleFromUrl')
+            ->willReturn('Extracted Article Title');
         $contentExtractor->method('extractFromUrl')
             ->willReturn('This is the extracted content from the article.');
 
-        $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
-        
-        $service = new ArticleCreationService(
-            $contentExtractor,
-            $this->articleRepository,
-            $eventDispatcher
-        );
+        $service = $this->makeService($contentExtractor, $this->createMock(EventDispatcherInterface::class));
 
-        $data = [
-            'title' => 'Test Article Title',
-            'url' => 'https://example.com/article',
-        ];
-
-        $articleResource = $service->create($data);
+        $articleResource = $service->create(['url' => 'https://example.com/article']);
 
         $this->assertNotNull($articleResource->id);
-        $this->assertEquals('Test Article Title', $articleResource->title);
+        $this->assertEquals('Extracted Article Title', $articleResource->title);
         $this->assertEquals('https://example.com/article', $articleResource->url);
         $this->assertEquals('STARTED', $articleResource->status);
 
@@ -60,6 +62,8 @@ class ArticleCreationServiceTest extends KernelTestCase
     public function testEventWasEmitted(): void
     {
         $contentExtractor = $this->createMock(ArticleContentExtractor::class);
+        $contentExtractor->method('extractTitleFromUrl')
+            ->willReturn('Another Test Article');
         $contentExtractor->method('extractFromUrl')
             ->willReturn('Article content here.');
 
@@ -67,71 +71,57 @@ class ArticleCreationServiceTest extends KernelTestCase
         $eventDispatcher->expects($this->once())
             ->method('dispatch')
             ->with($this->callback(function ($event) {
-                return $event instanceof ArticleWasCreated 
+                return $event instanceof ArticleWasCreated
                     && $event->getArticleId() !== null;
             }));
-        
-        $service = new ArticleCreationService(
-            $contentExtractor,
-            $this->articleRepository,
-            $eventDispatcher
-        );
 
-        $data = [
-            'title' => 'Another Test Article',
-            'url' => 'https://example.com/another-article',
-        ];
-
-        $service->create($data);
+        $this->makeService($contentExtractor, $eventDispatcher)
+            ->create(['url' => 'https://example.com/another-article']);
     }
 
     public function testErrorOccurredFromArticleContentExtractor(): void
     {
         $contentExtractor = $this->createMock(ArticleContentExtractor::class);
+        $contentExtractor->method('extractTitleFromUrl')
+            ->willReturn('Failed Article');
         $contentExtractor->method('extractFromUrl')
             ->willThrowException(new \RuntimeException('Failed to download content'));
 
-        $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
-        
-        $service = new ArticleCreationService(
-            $contentExtractor,
-            $this->articleRepository,
-            $eventDispatcher
-        );
-
-        $data = [
-            'title' => 'Failed Article',
-            'url' => 'https://example.com/failed',
-        ];
+        $service = $this->makeService($contentExtractor, $this->createMock(EventDispatcherInterface::class));
 
         $this->expectException(CorruptedArticleContentException::class);
         $this->expectExceptionMessage('Failed to fetch content from URL');
 
-        $service->create($data);
+        $service->create(['url' => 'https://example.com/failed']);
     }
 
     public function testEmptyContentThrowsCorruptedException(): void
     {
         $contentExtractor = $this->createMock(ArticleContentExtractor::class);
+        $contentExtractor->method('extractTitleFromUrl')
+            ->willReturn('Empty Content Article');
         $contentExtractor->method('extractFromUrl')
             ->willReturn('   ');
 
-        $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
-        
-        $service = new ArticleCreationService(
-            $contentExtractor,
-            $this->articleRepository,
-            $eventDispatcher
-        );
-
-        $data = [
-            'title' => 'Empty Content Article',
-            'url' => 'https://example.com/empty',
-        ];
+        $service = $this->makeService($contentExtractor, $this->createMock(EventDispatcherInterface::class));
 
         $this->expectException(CorruptedArticleContentException::class);
         $this->expectExceptionMessage('The downloaded content appears to be empty or corrupted');
 
-        $service->create($data);
+        $service->create(['url' => 'https://example.com/empty']);
+    }
+
+    public function testMissingTitleThrowsCorruptedException(): void
+    {
+        $contentExtractor = $this->createMock(ArticleContentExtractor::class);
+        $contentExtractor->method('extractTitleFromUrl')
+            ->willReturn(null);
+
+        $service = $this->makeService($contentExtractor, $this->createMock(EventDispatcherInterface::class));
+
+        $this->expectException(CorruptedArticleContentException::class);
+        $this->expectExceptionMessage('No title could be found in the page');
+
+        $service->create(['url' => 'https://example.com/no-title']);
     }
 }

@@ -117,64 +117,48 @@ class ArticleControllerTest extends WebTestCase
     public function testAssertTheRespectiveUserValidationInput(): void
     {
         $client = static::createClient();
-        
+
         $client->request('POST', '/api/articles', [
             'headers' => ['Content-Type' => 'application/json'],
             'json' => [
-                'title' => 'AB',
                 'url' => 'not-a-valid-url',
             ],
         ]);
 
         $this->assertResponseStatusCodeSame(422);
-        
-        $content = $client->getResponse()->getContent();
-        $this->assertNotEmpty($content);
-        $responseData = json_decode($content, true);
-        
+
+        $responseData = json_decode($client->getResponse()->getContent(), true);
+
         $this->assertIsArray($responseData);
         $this->assertArrayHasKey('violations', $responseData);
-        $violations = $responseData['violations'];
-        
-        // Check that we have violations for both title and url
-        $titleViolation = null;
+
         $urlViolation = null;
-        
-        foreach ($violations as $violation) {
-            if ($violation['propertyPath'] === 'title') {
-                $titleViolation = $violation;
-            }
+        foreach ($responseData['violations'] as $violation) {
             if ($violation['propertyPath'] === 'url') {
                 $urlViolation = $violation;
             }
         }
-        
-        $this->assertNotNull($titleViolation);
-        $this->assertStringContainsString('at least', $titleViolation['message']);
-        
+
         $this->assertNotNull($urlViolation);
-        // The URL is either invalid format or empty - either way it should fail validation
-        $this->assertTrue(true); // URL validation passed (either message works)
     }
 
     public function testAssertMissingRequiredFields(): void
     {
         $client = static::createClient();
-        
+
         $client->request('POST', '/api/articles', [
             'headers' => ['Content-Type' => 'application/json'],
             'json' => [],
         ]);
 
         $this->assertResponseStatusCodeSame(422);
-        
-        $content = $client->getResponse()->getContent();
-        $this->assertNotEmpty($content);
-        $responseData = json_decode($content, true);
-        
+
+        $responseData = json_decode($client->getResponse()->getContent(), true);
+
         $this->assertIsArray($responseData);
         $this->assertArrayHasKey('violations', $responseData);
-        $this->assertGreaterThanOrEqual(2, count($responseData['violations']));
+        $this->assertCount(1, $responseData['violations']);
+        $this->assertSame('url', $responseData['violations'][0]['propertyPath']);
     }
 
     public function testGetArticleReturnsArticleWithVerifications(): void

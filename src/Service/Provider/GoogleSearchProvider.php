@@ -35,7 +35,7 @@ class GoogleSearchProvider implements ArticleSearchProvider
             $response = $this->httpClient->request('GET', self::SERPAPI_BASE_URL, [
                 'query' => [
                     'api_key' => $this->serpApiKey,
-                    'q' => urlencode($title),
+                    'q' => $title,
                     'tbm' => 'nws', // news search
                     'num' => self::PAGE_SIZE,
                 ],

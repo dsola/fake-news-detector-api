@@ -49,15 +49,74 @@ class ArticleContentExtractor
 
     public function __construct(private readonly HttpClientInterface $httpClient) {}
 
+    // Ordered selectors for title extraction (most specific first)
+    private const TITLE_SELECTORS = [
+        ['type' => 'meta', 'attr' => 'property', 'value' => 'og:title', 'content' => 'content'],
+        ['type' => 'meta', 'attr' => 'name',     'value' => 'twitter:title', 'content' => 'content'],
+        ['type' => 'tag',  'selector' => 'title'],
+        ['type' => 'tag',  'selector' => 'h1'],
+    ];
+
     /**
      * Download and extract text content from a URL
-     * 
+     *
      * @throws \RuntimeException
      */
     public function extractFromUrl(string $url): string
     {
         $htmlContent = $this->downloadHtmlContent($url);
         return $this->extractTextFromHtml($htmlContent);
+    }
+
+    /**
+     * Download and extract the page title from a URL
+     *
+     * @throws \RuntimeException
+     */
+    public function extractTitleFromUrl(string $url): ?string
+    {
+        $htmlContent = $this->downloadHtmlContent($url);
+        return $this->extractTitleFromHtml($htmlContent);
+    }
+
+    /**
+     * Extract the page title from HTML using common meta/HTML tags
+     */
+    private function extractTitleFromHtml(string $html): ?string
+    {
+        try {
+            $crawler = new Crawler($html);
+
+            foreach (self::TITLE_SELECTORS as $rule) {
+                try {
+                    if ($rule['type'] === 'meta') {
+                        $node = $crawler->filter(
+                            sprintf('meta[%s="%s"]', $rule['attr'], $rule['value'])
+                        );
+                        if ($node->count() > 0) {
+                            $value = trim($node->first()->attr($rule['content']) ?? '');
+                            if ($value !== '') {
+                                return $value;
+                            }
+                        }
+                    } elseif ($rule['type'] === 'tag') {
+                        $node = $crawler->filter($rule['selector']);
+                        if ($node->count() > 0) {
+                            $value = trim($node->first()->text(''));
+                            if ($value !== '') {
+                                return $value;
+                            }
+                        }
+                    }
+                } catch (\Exception) {
+                    continue;
+                }
+            }
+        } catch (\Exception) {
+            return null;
+        }
+
+        return null;
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Entity\Article;
 use App\Entity\SimilarArticle as SimilarArticleEntity;
 use App\Entity\Verification;
 use App\Entity\VerificationResult;
+use App\Entity\VerificationType;
 use App\Repository\ArticleRepository;
 use App\Repository\SimilarArticleRepository;
 use App\Service\ArticleScoreCalculator;
@@ -171,7 +172,7 @@ class ArticleVerifier
     private function createPendingVerification(Article $article): Verification
     {
         $verification = new Verification();
-        $verification->setType('SIMILAR_CONTENT');
+        $verification->setType(VerificationType::SIMILAR_CONTENT->value);
         $verification->setResult(VerificationResult::PENDING->value);
         $verification->setMetadata([]);
         $verification->setStartedAt(new \DateTimeImmutable());
