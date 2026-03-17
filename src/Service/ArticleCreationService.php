@@ -8,14 +8,14 @@ use App\Exception\CorruptedArticleContentException;
 use App\Repository\ArticleRepository;
 use App\Resource\ArticleResource;
 use Psr\Log\LoggerInterface;
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 class ArticleCreationService
 {
     public function __construct(
         private readonly ArticleContentExtractor $contentExtractor,
         private readonly ArticleRepository $articleRepository,
-        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly MessageBusInterface $messageBus,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -69,9 +69,8 @@ class ArticleCreationService
 
         $article = $this->articleRepository->save($article);
 
-        // Dispatch the event
-        $event = new ArticleWasCreated($article->getId());
-        $this->eventDispatcher->dispatch($event);
+        // Dispatch the message to Kafka
+        $this->messageBus->dispatch(new ArticleWasCreated($article->getId()));
 
         return ArticleResource::fromEntity($article);
     }

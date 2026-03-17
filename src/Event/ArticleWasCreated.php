@@ -2,10 +2,9 @@
 
 namespace App\Event;
 
-use Symfony\Contracts\EventDispatcher\Event;
 use Symfony\Component\Uid\Uuid;
 
-class ArticleWasCreated extends Event
+class ArticleWasCreated
 {
     public function __construct(private readonly Uuid $articleId) {}
 

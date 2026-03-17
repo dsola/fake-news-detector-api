@@ -7,9 +7,8 @@ use App\Event\ArticleWasCreated;
 use App\Repository\ArticleRepository;
 use App\Service\ArticleVerifier;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
-#[AsEventListener(event: ArticleWasCreated::class, method: 'onArticleWasCreated')]
 class ArticleWasCreatedListener
 {
     public function __construct(
@@ -18,9 +17,10 @@ class ArticleWasCreatedListener
         private readonly LoggerInterface $logger,
     ) {}
 
-    public function onArticleWasCreated(ArticleWasCreated $event): void
+    #[AsMessageHandler]
+    public function onArticleWasCreated(ArticleWasCreated $message): void
     {
-        $articleId = $event->getArticleId();
+        $articleId = $message->getArticleId();
 
         try {
             // Lookup the article in the database

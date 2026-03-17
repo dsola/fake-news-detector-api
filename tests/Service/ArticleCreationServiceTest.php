@@ -2,15 +2,15 @@
 
 namespace App\Tests\Service;
 
-use App\Entity\Article;
 use App\Event\ArticleWasCreated;
 use App\Exception\CorruptedArticleContentException;
 use App\Repository\ArticleRepository;
 use App\Service\ArticleContentExtractor;
 use App\Service\ArticleCreationService;
+use App\Tests\TestDouble\MessageBusTestDouble;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 class ArticleCreationServiceTest extends KernelTestCase
 {
@@ -27,12 +27,12 @@ class ArticleCreationServiceTest extends KernelTestCase
         $entityManager->createQuery('DELETE FROM App\Entity\Article')->execute();
     }
 
-    private function makeService(ArticleContentExtractor $contentExtractor, EventDispatcherInterface $eventDispatcher): ArticleCreationService
+    private function makeService(ArticleContentExtractor $contentExtractor, MessageBusInterface $messageBus): ArticleCreationService
     {
         return new ArticleCreationService(
             $contentExtractor,
             $this->articleRepository,
-            $eventDispatcher,
+            $messageBus,
             $this->createStub(LoggerInterface::class),
         );
     }
@@ -45,7 +45,7 @@ class ArticleCreationServiceTest extends KernelTestCase
         $contentExtractor->method('extractFromUrl')
             ->willReturn('This is the extracted content from the article.');
 
-        $service = $this->makeService($contentExtractor, $this->createMock(EventDispatcherInterface::class));
+        $service = $this->makeService($contentExtractor, new MessageBusTestDouble());
 
         $articleResource = $service->create(['url' => 'https://example.com/article']);
 
@@ -67,16 +67,12 @@ class ArticleCreationServiceTest extends KernelTestCase
         $contentExtractor->method('extractFromUrl')
             ->willReturn('Article content here.');
 
-        $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
-        $eventDispatcher->expects($this->once())
-            ->method('dispatch')
-            ->with($this->callback(function ($event) {
-                return $event instanceof ArticleWasCreated
-                    && $event->getArticleId() !== null;
-            }));
+        $messageBus = new MessageBusTestDouble();
 
-        $this->makeService($contentExtractor, $eventDispatcher)
+        $this->makeService($contentExtractor, $messageBus)
             ->create(['url' => 'https://example.com/another-article']);
+
+        $messageBus->assertEventDispatched(ArticleWasCreated::class);
     }
 
     public function testErrorOccurredFromArticleContentExtractor(): void
@@ -87,7 +83,7 @@ class ArticleCreationServiceTest extends KernelTestCase
         $contentExtractor->method('extractFromUrl')
             ->willThrowException(new \RuntimeException('Failed to download content'));
 
-        $service = $this->makeService($contentExtractor, $this->createMock(EventDispatcherInterface::class));
+        $service = $this->makeService($contentExtractor, new MessageBusTestDouble());
 
         $this->expectException(CorruptedArticleContentException::class);
         $this->expectExceptionMessage('Failed to fetch content from URL');
@@ -103,7 +99,7 @@ class ArticleCreationServiceTest extends KernelTestCase
         $contentExtractor->method('extractFromUrl')
             ->willReturn('   ');
 
-        $service = $this->makeService($contentExtractor, $this->createMock(EventDispatcherInterface::class));
+        $service = $this->makeService($contentExtractor, new MessageBusTestDouble());
 
         $this->expectException(CorruptedArticleContentException::class);
         $this->expectExceptionMessage('The downloaded content appears to be empty or corrupted');
@@ -117,7 +113,7 @@ class ArticleCreationServiceTest extends KernelTestCase
         $contentExtractor->method('extractTitleFromUrl')
             ->willReturn(null);
 
-        $service = $this->makeService($contentExtractor, $this->createMock(EventDispatcherInterface::class));
+        $service = $this->makeService($contentExtractor, new MessageBusTestDouble());
 
         $this->expectException(CorruptedArticleContentException::class);
         $this->expectExceptionMessage('No title could be found in the page');
