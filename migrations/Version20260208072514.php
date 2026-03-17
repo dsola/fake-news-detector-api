@@ -29,6 +29,7 @@ final class Version20260208072514 extends AbstractMigration
         $articleTable->addColumn('id', 'uuid', ['notnull' => true]);
         $articleTable->addColumn('title', 'string', ['length' => 255, 'notnull' => true]);
         $articleTable->addColumn('content', 'text', ['notnull' => false]);
+        $articleTable->addColumn('url', 'string', ['length' => 255, 'notnull' => true]);
         $articleTable->addColumn('verified_at', 'datetime', ['notnull' => false]);
         $articleTable->addColumn('errored_at', 'datetime', ['notnull' => false]);
         $articleTable->addColumn('created_at', 'datetime', ['notnull' => true]);

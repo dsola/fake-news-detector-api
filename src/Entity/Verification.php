@@ -3,13 +3,14 @@
 namespace App\Entity;
 
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Delete;
 use App\Repository\VerificationRepository;
+use DateTimeInterface;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
@@ -39,7 +40,7 @@ class Verification
 
     #[ORM\ManyToOne(targetEntity: Article::class, inversedBy: 'verifications')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['verification:read', 'verification:write'])]
+    #[Groups(['verification:write'])]
     private ?Article $article = null;
 
     #[ORM\Column(length: 50)]
@@ -145,8 +146,11 @@ class Verification
         return $this->startedAt;
     }
 
-    public function setStartedAt(?\DateTimeInterface $startedAt): static
+    public function setStartedAt(DateTimeInterface $startedAt): static
     {
+        if (!$startedAt instanceof \DateTime) {
+            $startedAt = \DateTime::createFromInterface($startedAt);
+        }
         $this->startedAt = $startedAt;
         return $this;
     }
@@ -156,8 +160,11 @@ class Verification
         return $this->terminatedAt;
     }
 
-    public function setTerminatedAt(?\DateTimeInterface $terminatedAt): static
+    public function setTerminatedAt(DateTimeInterface $terminatedAt): static
     {
+        if (!$terminatedAt instanceof \DateTime) {
+            $terminatedAt = \DateTime::createFromInterface($terminatedAt);
+        }
         $this->terminatedAt = $terminatedAt;
         return $this;
     }
@@ -167,8 +174,11 @@ class Verification
         return $this->erroredAt;
     }
 
-    public function setErroredAt(?\DateTimeInterface $erroredAt): static
+    public function setErroredAt(DateTimeInterface $erroredAt): static
     {
+        if (!$erroredAt instanceof \DateTime) {
+            $erroredAt = \DateTime::createFromInterface($erroredAt);
+        }
         $this->erroredAt = $erroredAt;
         return $this;
     }
@@ -180,6 +190,9 @@ class Verification
 
     public function setCreatedAt(\DateTimeInterface $createdAt): static
     {
+        if (!$createdAt instanceof \DateTime) {
+            $createdAt = \DateTime::createFromInterface($createdAt);
+        }
         $this->createdAt = $createdAt;
         return $this;
     }

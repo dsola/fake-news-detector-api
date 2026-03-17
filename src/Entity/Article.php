@@ -2,14 +2,8 @@
 
 namespace App\Entity;
 
-use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Post;
-use ApiPlatform\Metadata\Put;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Delete;
 use App\Repository\ArticleRepository;
+use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -20,18 +14,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: ArticleRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-#[ApiResource(
-    operations: [
-        new Get(),
-        new GetCollection(),
-        new Post(),
-        new Put(),
-        new Patch(),
-        new Delete()
-    ],
-    normalizationContext: ['groups' => ['article:read']],
-    denormalizationContext: ['groups' => ['article:write']]
-)]
 class Article
 {
     #[ORM\Id]
@@ -48,6 +30,10 @@ class Article
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[Groups(['article:read', 'article:write'])]
     private ?string $content = null;
+
+    #[ORM\Column(length: 255)]
+    #[Groups(['article:read', 'article:write'])]
+    private ?string $url = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     #[Groups(['article:read'])]
@@ -69,10 +55,14 @@ class Article
     #[Groups(['article:read'])]
     private Collection $verifications;
 
+    #[ORM\OneToMany(targetEntity: SimilarArticle::class, mappedBy: 'article', cascade: ['persist', 'remove'])]
+    private Collection $similarArticles;
+
     public function __construct()
     {
         $this->id = Uuid::v4();
         $this->verifications = new ArrayCollection();
+        $this->similarArticles = new ArrayCollection();
     }
 
     #[ORM\PrePersist]
@@ -109,9 +99,20 @@ class Article
         return $this->content;
     }
 
-    public function setContent(?string $content): static
+    public function setContent(string $content): static
     {
-        $this->content = $content;
+        $this->content = mb_convert_encoding($content, 'UTF-8');
+        return $this;
+    }
+
+    public function getUrl(): ?string
+    {
+        return $this->url;
+    }
+
+    public function setUrl(?string $url): static
+    {
+        $this->url = $url;
         return $this;
     }
 
@@ -120,19 +121,25 @@ class Article
         return $this->verifiedAt;
     }
 
-    public function setVerifiedAt(?\DateTimeInterface $verifiedAt): static
+    public function setVerifiedAt(DateTimeInterface $verifiedAt): static
     {
+        if (!$verifiedAt instanceof \DateTime) {
+            $verifiedAt = \DateTime::createFromInterface($verifiedAt);
+        }
         $this->verifiedAt = $verifiedAt;
         return $this;
     }
 
-    public function getErroredAt(): ?\DateTimeInterface
+    public function getErroredAt(): ?DateTimeInterface
     {
         return $this->erroredAt;
     }
 
-    public function setErroredAt(?\DateTimeInterface $erroredAt): static
+    public function setErroredAt(DateTimeInterface $erroredAt): static
     {
+        if (!$erroredAt instanceof \DateTime) {
+            $erroredAt = \DateTime::createFromInterface($erroredAt);
+        }
         $this->erroredAt = $erroredAt;
         return $this;
     }
@@ -144,6 +151,9 @@ class Article
 
     public function setCreatedAt(\DateTimeInterface $createdAt): static
     {
+        if (!$createdAt instanceof \DateTime) {
+            $createdAt = \DateTime::createFromInterface($createdAt);
+        }
         $this->createdAt = $createdAt;
         return $this;
     }
@@ -155,6 +165,9 @@ class Article
 
     public function setUpdatedAt(\DateTimeInterface $updatedAt): static
     {
+        if (!$updatedAt instanceof \DateTime) {
+            $updatedAt = \DateTime::createFromInterface($updatedAt);
+        }
         $this->updatedAt = $updatedAt;
         return $this;
     }
@@ -172,6 +185,23 @@ class Article
         if (!$this->verifications->contains($verification)) {
             $this->verifications->add($verification);
             $verification->setArticle($this);
+        }
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, SimilarArticle>
+     */
+    public function getSimilarArticles(): Collection
+    {
+        return $this->similarArticles;
+    }
+
+    public function addSimilarArticle(SimilarArticle $similarArticle): static
+    {
+        if (!$this->similarArticles->contains($similarArticle)) {
+            $this->similarArticles->add($similarArticle);
+            $similarArticle->setArticle($this);
         }
         return $this;
     }

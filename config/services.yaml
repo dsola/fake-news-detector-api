@@ -22,3 +22,31 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    App\Service\ArticleWebSearch:
+        arguments:
+            $primaryProvider: '@App\Service\Provider\NewsAPIProvider'
+            $fallbackProvider: '@App\Service\Provider\GoogleSearchProvider'
+            $logger: '@Psr\Log\LoggerInterface'
+
+    App\Service\Provider\NewsAPIProvider:
+        arguments:
+            $newsApiKey: '%env(NEWS_API_KEY)%'
+
+    App\Service\Provider\GoogleSearchProvider:
+        arguments:
+            $serpApiKey: '%env(SERP_API_KEY)%'
+
+    App\Logging\FileLogger:
+        arguments:
+            $logFile: '%kernel.logs_dir%/%kernel.environment%.log'
+
+    Psr\Log\LoggerInterface: '@App\Logging\FileLogger'
+    
+    App\Service\ArticleScoreCalculator:
+        arguments:
+            $limit: 10
+            $approvalThreshold: 0.5
+
+    
+

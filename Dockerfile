@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6-dev \
     libxml2-dev \
     libpq-dev \
+    librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -26,6 +27,8 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
       mbstring \
       xml \
       gd
+
+RUN pecl install rdkafka && docker-php-ext-enable rdkafka
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

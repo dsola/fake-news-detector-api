@@ -1,0 +1,26 @@
+framework:
+    messenger:
+        transports:
+            article_was_created:
+                dsn: '%env(KAFKA_DSN)%'
+                options:
+                    flushTimeout: 10000
+                    flushRetries: 10
+                    receiveTimeout: 10000
+                    commitAsync: false
+                    topic:
+                        name: article_was_created
+                    kafka_conf:
+                        group.id: fake-news-detector
+                        enable.auto.commit: 'false'
+                    topic_conf:
+                        auto.offset.reset: earliest
+
+        routing:
+            'App\Event\ArticleWasCreated': article_was_created
+
+when@test:
+    framework:
+        messenger:
+            transports:
+                article_was_created: 'in-memory://'
