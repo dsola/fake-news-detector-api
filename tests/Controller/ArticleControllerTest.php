@@ -3,15 +3,19 @@
 namespace App\Tests\Controller;
 
 use App\Entity\Article;
+use App\Entity\Client;
 use App\Entity\Verification;
 use App\Entity\VerificationResult;
 use App\Service\ArticleContentExtractor;
 use Doctrine\ORM\EntityManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -42,7 +46,7 @@ HTML;
 
         $mockResponse = new MockResponse($htmlContent, ['http_code' => 200]);
         $mockHttpClient = new MockHttpClient($mockResponse);
-        
+
         $container = static::getContainer();
         $container->set('http_client', $mockHttpClient);
         $container->set(ArticleContentExtractor::class, new ArticleContentExtractor($mockHttpClient));
@@ -50,7 +54,7 @@ HTML;
         // Test the service directly
         $service = $container->get(ArticleContentExtractor::class);
         $content = $service->extractFromUrl('https://example.com/news');
-        
+
         $this->assertStringContainsString('News Article', $content);
         $this->assertStringContainsString('This is news content.', $content);
     }
@@ -62,16 +66,16 @@ HTML;
             'error' => 'Server Error'
         ]);
         $mockHttpClient = new MockHttpClient($mockResponse);
-        
+
         $container = static::getContainer();
         $container->set('http_client', $mockHttpClient);
         $container->set(ArticleContentExtractor::class, new ArticleContentExtractor($mockHttpClient));
 
         $service = $container->get(ArticleContentExtractor::class);
-        
+
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Failed to download content from URL');
-        
+
         $service->extractFromUrl('https://example.com/broken-url');
     }
 
@@ -90,14 +94,14 @@ HTML;
 
         $mockResponse = new MockResponse($emptyHtml, ['http_code' => 200]);
         $mockHttpClient = new MockHttpClient($mockResponse);
-        
+
         $container = static::getContainer();
         $container->set('http_client', $mockHttpClient);
         $container->set(ArticleContentExtractor::class, new ArticleContentExtractor($mockHttpClient));
 
         $service = $container->get(ArticleContentExtractor::class);
         $content = $service->extractFromUrl('https://example.com/empty-content');
-        
+
         $this->assertEmpty(trim($content));
     }
 }
@@ -108,26 +112,62 @@ HTML;
  */
 class ArticleControllerTest extends WebTestCase
 {
+    private KernelBrowser $browser;
+    private EntityManagerInterface $entityManager;
+    private string $jwtToken;
+
+    protected function setUp(): void
+    {
+        $this->browser = static::createClient();
+        $this->entityManager = static::getContainer()->get('doctrine')->getManager();
+        $this->purgeDatabase($this->entityManager);
+        $this->jwtToken = $this->createAuthenticatedClient();
+    }
+
     private function purgeDatabase(EntityManagerInterface $entityManager): void
     {
         $entityManager->createQuery('DELETE FROM App\\Entity\\Verification')->execute();
         $entityManager->createQuery('DELETE FROM App\\Entity\\Article')->execute();
+        $entityManager->createQuery('DELETE FROM App\\Entity\\Client')->execute();
+    }
+
+    private function createAuthenticatedClient(): string
+    {
+        $container = static::getContainer();
+        $passwordHasher = $container->get(UserPasswordHasherInterface::class);
+
+        $client = new Client();
+        $client->setClientId('test-client');
+        $client->setClientSecret($passwordHasher->hashPassword($client, 'test-secret'));
+        $client->setScopes(['article:read', 'article:write']);
+
+        $this->entityManager->persist($client);
+        $this->entityManager->flush();
+
+        $jwtManager = $container->get(JWTTokenManagerInterface::class);
+
+        return $jwtManager->create($client);
+    }
+
+    private function withAuth(array $serverParams = []): array
+    {
+        return array_merge($serverParams, ['HTTP_AUTHORIZATION' => 'Bearer ' . $this->jwtToken]);
     }
 
     public function testAssertTheRespectiveUserValidationInput(): void
     {
-        $client = static::createClient();
-
-        $client->request('POST', '/api/articles', [
-            'headers' => ['Content-Type' => 'application/json'],
-            'json' => [
-                'url' => 'not-a-valid-url',
-            ],
-        ]);
+        $this->browser->request(
+            'POST',
+            '/api/articles',
+            [],
+            [],
+            $this->withAuth(['CONTENT_TYPE' => 'application/json']),
+            json_encode(['url' => 'not-a-valid-url'])
+        );
 
         $this->assertResponseStatusCodeSame(422);
 
-        $responseData = json_decode($client->getResponse()->getContent(), true);
+        $responseData = json_decode($this->browser->getResponse()->getContent(), true);
 
         $this->assertIsArray($responseData);
         $this->assertArrayHasKey('violations', $responseData);
@@ -144,16 +184,18 @@ class ArticleControllerTest extends WebTestCase
 
     public function testAssertMissingRequiredFields(): void
     {
-        $client = static::createClient();
-
-        $client->request('POST', '/api/articles', [
-            'headers' => ['Content-Type' => 'application/json'],
-            'json' => [],
-        ]);
+        $this->browser->request(
+            'POST',
+            '/api/articles',
+            [],
+            [],
+            $this->withAuth(['CONTENT_TYPE' => 'application/json']),
+            json_encode([])
+        );
 
         $this->assertResponseStatusCodeSame(422);
 
-        $responseData = json_decode($client->getResponse()->getContent(), true);
+        $responseData = json_decode($this->browser->getResponse()->getContent(), true);
 
         $this->assertIsArray($responseData);
         $this->assertArrayHasKey('violations', $responseData);
@@ -163,10 +205,6 @@ class ArticleControllerTest extends WebTestCase
 
     public function testGetArticleReturnsArticleWithVerifications(): void
     {
-        $client = static::createClient();
-        $entityManager = static::getContainer()->get('doctrine')->getManager();
-        $this->purgeDatabase($entityManager);
-
         $article = new Article();
         $article->setTitle('Fetched Article');
         $article->setUrl('https://example.com/verified');
@@ -180,13 +218,19 @@ class ArticleControllerTest extends WebTestCase
         $verification->setTerminatedAt(new \DateTime());
 
         $article->addVerification($verification);
-        $entityManager->persist($article);
-        $entityManager->flush();
+        $this->entityManager->persist($article);
+        $this->entityManager->flush();
 
-        $client->request('GET', '/api/articles/' . $article->getId()->toRfc4122());
+        $this->browser->request(
+            'GET',
+            '/api/articles/' . $article->getId()->toRfc4122(),
+            [],
+            [],
+            $this->withAuth()
+        );
 
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
-        $payload = json_decode($client->getResponse()->getContent(), true);
+        $payload = json_decode($this->browser->getResponse()->getContent(), true);
         $this->assertIsArray($payload);
         $this->assertArrayHasKey('verifications', $payload);
         $this->assertNotEmpty($payload['verifications']);
@@ -196,23 +240,38 @@ class ArticleControllerTest extends WebTestCase
 
     public function testGetArticleRespondsNotFoundForMissingArticle(): void
     {
-        $client = static::createClient();
-
-        $client->request('GET', '/api/articles/' . Uuid::v4()->toRfc4122());
+        $this->browser->request(
+            'GET',
+            '/api/articles/' . Uuid::v4()->toRfc4122(),
+            [],
+            [],
+            $this->withAuth()
+        );
 
         $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
-        $payload = json_decode($client->getResponse()->getContent(), true);
+        $payload = json_decode($this->browser->getResponse()->getContent(), true);
         $this->assertSame('Article not found', $payload['error']);
     }
 
     public function testGetArticleRejectsInvalidIdFormat(): void
     {
-        $client = static::createClient();
-
-        $client->request('GET', '/api/articles/not-a-uuid');
+        $this->browser->request(
+            'GET',
+            '/api/articles/not-a-uuid',
+            [],
+            [],
+            $this->withAuth()
+        );
 
         $this->assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
-        $payload = json_decode($client->getResponse()->getContent(), true);
+        $payload = json_decode($this->browser->getResponse()->getContent(), true);
         $this->assertSame('Invalid article ID format', $payload['error']);
+    }
+
+    public function testUnauthenticatedRequestIsRejected(): void
+    {
+        $this->browser->request('GET', '/api/articles/' . Uuid::v4()->toRfc4122());
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
     }
 }

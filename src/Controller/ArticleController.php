@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Uuid;
 
 #[Route('/api/articles')]
@@ -20,6 +21,7 @@ class ArticleController extends AbstractController
         private readonly ArticleRepository $articleRepository,
     ) {}
 
+    #[IsGranted('ROLE_ARTICLE_WRITE')]
     #[Route('', name: 'create_article', methods: ['POST'])]
     public function create(
         #[MapRequestPayload] CreateArticleRequest $request
@@ -32,6 +34,7 @@ class ArticleController extends AbstractController
         return $this->json($articleResource->toArray(), Response::HTTP_CREATED);
     }
 
+    #[IsGranted('ROLE_ARTICLE_READ')]
     #[Route('/{id}', name: 'get_article', requirements: ['id' => '.+'], methods: ['GET'])]
     public function show(string $id): JsonResponse
     {
